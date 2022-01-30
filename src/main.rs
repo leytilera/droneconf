@@ -9,7 +9,7 @@ use model::{APIConfig, Request};
 use serde_json::Value;
 use structopt::StructOpt;
 
-use crate::model::Response;
+use crate::model::{AuthQuery, Response};
 
 mod config;
 mod error;
@@ -31,7 +31,11 @@ async fn main() -> Result<(), Error> {
     let opt = Opt::from_args();
     let config = std::fs::read(&opt.config)?;
     let config = toml::from_slice::<Config>(&config)?;
-    let api_conf = APIConfig(config.gitea_url, config.config_repo_name);
+    let api_conf = APIConfig(
+        config.gitea_url,
+        config.config_repo_name,
+        config.admin_token,
+    );
 
     let app = Router::new()
         .route("/", post(on_request))
@@ -46,19 +50,28 @@ async fn main() -> Result<(), Error> {
 
 async fn on_request(
     Json(body): Json<Request>,
-    Extension(APIConfig(base_url, repo_name)): Extension<APIConfig>,
+    Extension(APIConfig(base_url, repo_name, token)): Extension<APIConfig>,
 ) -> Result<impl IntoResponse, Error> {
     let client = reqwest::ClientBuilder::new()
         .user_agent("curl")
         .timeout(Duration::from_secs(30))
         .build()?;
+    let auth = AuthQuery {
+        access_token: token,
+    };
     let index_url = format!(
         "{}/api/v1/repos/{}/{}/raw/index.json",
         base_url.to_string(),
         body.namespace(),
         &repo_name
     );
-    let res: Value = client.get(index_url).send().await?.json().await?;
+    let res: Value = client
+        .get(index_url)
+        .query(&auth)
+        .send()
+        .await?
+        .json()
+        .await?;
 
     if let Value::Object(obj) = res {
         let v = obj.get(&body.name()).ok_or(Error::NoContent)?;
@@ -70,7 +83,13 @@ async fn on_request(
                 &repo_name,
                 path
             );
-            let drone_config = client.get(conf_url).send().await?.text().await?;
+            let drone_config = client
+                .get(conf_url)
+                .query(&auth)
+                .send()
+                .await?
+                .text()
+                .await?;
             let response = Response { data: drone_config };
             return Ok(Json(response));
         }

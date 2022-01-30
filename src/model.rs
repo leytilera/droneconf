@@ -17,8 +17,13 @@ pub struct Response {
     pub data: String,
 }
 
+#[derive(Serialize)]
+pub struct AuthQuery {
+    pub access_token: String,
+}
+
 #[derive(Clone)]
-pub struct APIConfig(pub Url, pub String);
+pub struct APIConfig(pub Url, pub String, pub String);
 
 impl Request {
     pub fn namespace(&self) -> String {
