@@ -13,7 +13,7 @@ FROM debian:buster
 
 COPY --from=builder /usr/src/droneconf/target/release/droneconf /usr/bin
 
-RUN apt update && apt install -y libssl1.1 dumb-init
+RUN apt update && apt install -y libssl1.1 dumb-init ca-certificates && update-ca-certificates
 
 VOLUME ["/data"]
 
