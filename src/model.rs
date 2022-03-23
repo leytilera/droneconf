@@ -10,6 +10,7 @@ pub struct Request {
 pub struct Repository {
     pub name: String,
     pub namespace: String,
+    pub config_path: String,
 }
 
 #[derive(Serialize)]
@@ -32,5 +33,9 @@ impl Request {
 
     pub fn name(&self) -> String {
         self.repo.name.clone()
+    }
+
+    pub fn config(&self) -> String {
+        self.repo.config_path.clone()
     }
 }

@@ -56,6 +56,13 @@ async fn on_request(
         .user_agent("curl")
         .timeout(Duration::from_secs(30))
         .build()?;
+    let conf = body.config();
+    if conf.starts_with("http://") || conf.starts_with("https://") {
+        let drone_config = client.get(conf).send().await?.text().await?;
+        let response = Response { data: drone_config };
+        return Ok(Json(response));
+    }
+
     let auth = AuthQuery {
         access_token: token,
     };
