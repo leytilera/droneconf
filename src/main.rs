@@ -6,10 +6,10 @@ use axum::{
 use config::Config;
 use error::Error;
 use model::{APIConfig, Request};
-use serde_json::Value;
+use reqwest::Proxy;
 use structopt::StructOpt;
 
-use crate::model::{AuthQuery, Response};
+use crate::model::Response;
 
 mod config;
 mod error;
@@ -31,11 +31,18 @@ async fn main() -> Result<(), Error> {
     let opt = Opt::from_args();
     let config = std::fs::read(&opt.config)?;
     let config = toml::from_slice::<Config>(&config)?;
-    let api_conf = APIConfig(
-        config.gitea_url,
-        config.config_repo_name,
-        config.admin_token,
-    );
+    let mut builder = reqwest::ClientBuilder::new()
+        .user_agent("curl")
+        .timeout(Duration::from_secs(30));
+    if let Some(px) = config.proxy {
+        let mut proxy = Proxy::all(px)?;
+        if let Some(auth) = config.proxy_auth {
+            proxy = proxy.basic_auth(auth.username.as_str(), auth.password.as_str());
+        }
+        builder = builder.proxy(proxy);
+    }
+    let client = builder.build()?;
+    let api_conf = APIConfig(client);
 
     let app = Router::new()
         .route("/", post(on_request))
@@ -50,56 +57,13 @@ async fn main() -> Result<(), Error> {
 
 async fn on_request(
     Json(body): Json<Request>,
-    Extension(APIConfig(base_url, repo_name, token)): Extension<APIConfig>,
+    Extension(APIConfig(client)): Extension<APIConfig>,
 ) -> Result<impl IntoResponse, Error> {
-    let client = reqwest::ClientBuilder::new()
-        .user_agent("curl")
-        .timeout(Duration::from_secs(30))
-        .build()?;
     let conf = body.config();
     if conf.starts_with("http://") || conf.starts_with("https://") {
         let drone_config = client.get(conf).send().await?.text().await?;
         let response = Response { data: drone_config };
         return Ok(Json(response));
-    }
-
-    let auth = AuthQuery {
-        access_token: token,
-    };
-    let index_url = format!(
-        "{}/api/v1/repos/{}/{}/raw/index.json",
-        base_url.to_string(),
-        body.namespace(),
-        &repo_name
-    );
-    let res: Value = client
-        .get(index_url)
-        .query(&auth)
-        .send()
-        .await?
-        .json()
-        .await?;
-
-    if let Value::Object(obj) = res {
-        let v = obj.get(&body.name()).ok_or(Error::NoContent)?;
-        if let Value::String(path) = v {
-            let conf_url = format!(
-                "{}/api/v1/repos/{}/{}/raw/{}",
-                base_url.to_string(),
-                body.namespace(),
-                &repo_name,
-                path
-            );
-            let drone_config = client
-                .get(conf_url)
-                .query(&auth)
-                .send()
-                .await?
-                .text()
-                .await?;
-            let response = Response { data: drone_config };
-            return Ok(Json(response));
-        }
     }
     Err(Error::NoContent)
 }

@@ -1,12 +1,16 @@
 use std::net::SocketAddr;
 
-use reqwest::Url;
 use serde::Deserialize;
 
 #[derive(Deserialize)]
 pub struct Config {
     pub addr: SocketAddr,
-    pub gitea_url: Url,
-    pub config_repo_name: String,
-    pub admin_token: String,
+    pub proxy: Option<String>,
+    pub proxy_auth: Option<ProxyAuth>,
+}
+
+#[derive(Deserialize)]
+pub struct ProxyAuth {
+    pub username: String,
+    pub password: String,
 }
