@@ -47,7 +47,7 @@ impl Request {
 
 impl Response {
     pub fn new(data: String, is_woodpecker: bool) -> Self {
-        if is_woodpecker {
+        if !is_woodpecker {
             Self {
                 data: Some(data),
                 configs: None,
