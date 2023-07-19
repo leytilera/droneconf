@@ -62,7 +62,7 @@ async fn on_request(
     let conf = body.config().ok_or(Error::NoContent)?;
     if conf.starts_with("http://") || conf.starts_with("https://") {
         let drone_config = client.get(conf).send().await?.text().await?;
-        let response = Response { data: drone_config };
+        let response = Response::new(drone_config, body.is_woodpecker());
         return Ok(Json(response));
     }
     Err(Error::NoContent)
