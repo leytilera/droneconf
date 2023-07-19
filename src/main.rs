@@ -59,7 +59,7 @@ async fn on_request(
     Json(body): Json<Request>,
     Extension(APIConfig(client)): Extension<APIConfig>,
 ) -> Result<impl IntoResponse, Error> {
-    let conf = body.config();
+    let conf = body.config().ok_or(Error::NoContent)?;
     if conf.starts_with("http://") || conf.starts_with("https://") {
         let drone_config = client.get(conf).send().await?.text().await?;
         let response = Response { data: drone_config };

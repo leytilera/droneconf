@@ -8,7 +8,9 @@ pub struct Request {
 
 #[derive(Deserialize)]
 pub struct Repository {
-    pub config_path: String,
+    pub config_path: Option<String>,
+    pub config_file: Option<String>,
+    pub config: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -20,7 +22,7 @@ pub struct Response {
 pub struct APIConfig(pub Client);
 
 impl Request {
-    pub fn config(&self) -> String {
-        self.repo.config_path.clone()
+    pub fn config(&self) -> Option<String> {
+        self.repo.config_path.clone().or(self.repo.config_file.clone()).or(self.repo.config.clone())
     }
 }
